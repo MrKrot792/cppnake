@@ -3,18 +3,22 @@
  */
 #include "utils.h"
 #include <chrono>
+#include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <ncurses.h>
 #include <thread>
 #include <vector>
 
 bool running = true;
+bool gameOver = false;
 int runtime = 0;
 int score = 0;
 
 Vec2 pos = Vec2();
-Vec2 dir = Vec2(1, 0);
+Vec2 dir = Vec2(0, -1);
 Vec2 applesPos = Vec2();
 
 std::vector<Vec2> hist = {};
@@ -25,6 +29,7 @@ int main()
 
     // Some cool ncurses stuff
     initscr();
+    start_color();
     clearok(stdscr, false);
     raw();
     noecho();
@@ -36,6 +41,11 @@ int main()
 
     applesPos.x = 4 + (rand() % ((COLS / 2) - 9));
     applesPos.y = 2 + (rand() % (LINES - 4));
+
+    pos = Vec2(COLS / 4, LINES / 2);
+
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(2, COLOR_GREEN, COLOR_BLACK);
 
     while (running)
     {
@@ -103,6 +113,11 @@ int main()
             case ' ':
                 hist.push_back(pos);
                 break;
+
+            case 'g':
+                gameOver = true;
+                running = false;
+                break;
             }
         }
 
@@ -124,8 +139,26 @@ int main()
 
             score += 1;
         }
+        else
+        {
+            for (int i = 0; i < hist.size(); i++)
+            {
+                if (pos == hist.at(i))
+                {
+                    running = false;
+                    gameOver = true;
+                }
+            }
+        }
+
+        if (pos.y >= LINES - 1 || pos.y <= 0 || pos.x >= (COLS) / 2 - 1 || pos.x <= 0)
+        {
+            running = false;
+            gameOver = true;
+        }
 
         // Body
+        attron(COLOR_PAIR(2));
         for (int i = 0; i < hist.size(); i++)
         {
             drawAt(hist.at(i), '%');
@@ -133,8 +166,11 @@ int main()
 
         // Head
         drawAt(pos, '@');
+        attroff(COLOR_PAIR(2));
 
+        attron(COLOR_PAIR(1));
         drawAt(applesPos, '$');
+        attroff(COLOR_PAIR(1));
 
         // Score
         mvprintw(0, 0, "Score: %d", score * 100);
@@ -143,6 +179,21 @@ int main()
 
         refresh();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+
+    if (gameOver)
+    {
+        size_t s1 = std::strlen("GAME OVER"); // GAME OVER
+        size_t s2 = snprintf(nullptr, 0, "Your score is: %d", score * 100);
+
+        erase();
+        mvprintw(LINES / 2, COLS / 2 - s1 / 2, "GAME OVER");
+        mvprintw(LINES / 2 + 1, COLS / 2 - s2 / 2, "Your score is: %d", score * 100);
+        refresh();
+
+        nodelay(stdscr, false);
+
+        int a = getch();
     }
 
     endwin();
